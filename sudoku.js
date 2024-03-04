@@ -84,9 +84,7 @@ class Sudoku {
    */
   cdclSolver() {
     //check if sudoku is already solved
-    if (this.isSudokuSolved()) {
-      return true;
-    }
+    if (this.isSudokuSolved()) return true;
 
     //update pos values for each cell
     this.calculatePossibleValues();
@@ -103,52 +101,66 @@ class Sudoku {
       }
     }
 
-    if (this.isSudokuSolved()) {
-      return true;
-    }
+    if (this.isSudokuSolved()) return true;
 
-    let bestCells = this.getCellWithMinimumRemainingValues();
-    let bestCell = null;
+    const bestCell = this.chooseBestCell();
 
-    if (bestCells.length === 1) {
-      bestCell = bestCells[0];
-    } else if (bestCells.length > 1) {
-      //if tie for best cells - apply degree heuristics
-      bestCell = this.applyDegreeHeuristics(bestCells);
-    }
     if (!bestCell) {
       return false; // No viable cell found, trigger backtracking
     }
 
-    //calculate least constraining values for the chosen cell
-    let { r, c } = bestCell;
-
-    //creates array with objects of its value and score
-    let valueScores = this.posValues[r][c].map((value) => {
-      return {
-        value: value,
-        score: this.calculateConstrainingValue(r, c, value),
-      };
-    });
-
-    //sort values based on their scores
-    valueScores.sort((a, b) => a.score - b.score);
-
-    //get sorted values
-    let leastConstrainingValues = valueScores.map((cell) => cell.value);
+    const leastConstrainingValues =
+      this.getSortedValuesByConstrainingScore(bestCell);
 
     for (let value of leastConstrainingValues) {
-      this.recordDecisionPoint(r, c, value);
-      this.assignValue(r, c, value);
+      this.recordDecisionPoint(bestCell.r, bestCell.c, value);
+      this.assignValue(bestCell.r, bestCell.c, value);
 
       if (this.cdclSolver()) {
         return true; //solution found;
       } else {
-        this.unassignValue(r, c, value); //backtrack;
+        this.unassignValue(bestCell.r, bestCell.c, value); //backtrack;
       }
     }
 
     return false; //triggers backtracking
+  }
+
+  /**
+   * Returns sorted values of bestCells possible values based on constraining score
+   *
+   * @param {Object} bestCell
+   * @returns {Array} sorted values
+   */
+  getSortedValuesByConstrainingScore(bestCell) {
+    let { r, c } = bestCell;
+    let valueScores = this.posValues[r][c].map((value) => ({
+      value,
+      score: this.calculateConstrainingValue(r, c, value),
+    }));
+
+    //sort values based on their scores
+    valueScores.sort((a, b) => a.score - b.score);
+
+    return valueScores.map((cell) => cell.value);
+  }
+
+  /**
+   * Chooses best cell for next assignment based on minimum remaining values heuristic and degree heuristic
+   * Finds first cell with minimum num of possible values left
+   * if tie, applies degree heuristics
+   * @returns {Object} best cell for next assignment or null if no cells available
+   */
+  chooseBestCell() {
+    let bestCells = this.getCellWithMinimumRemainingValues();
+    if (bestCells.length === 0) {
+      return false;;
+    } else if (bestCells.length === 1) {
+      return bestCells[0];
+    } else {
+      //if tie for best cells - apply degree heuristics
+      return this.applyDegreeHeuristics(bestCells);
+    }
   }
 
   /**
